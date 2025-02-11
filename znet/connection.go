@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"zinx/utils"
 	"zinx/ziface"
 )
 
@@ -27,53 +28,6 @@ func NewConnection(conn *net.TCPConn, connID uint32, msgHandler ziface.IMsgHandl
 		msgChan:      make(chan []byte), //msgChan初始化
 	}
 	return c
-}
-
-// StartReader 处理conn读数据的Goroutine
-func (c *Connection) StartReader() {
-	fmt.Sprintf("Reader Goroutine is running....")
-	defer fmt.Println(c.RemoteAddr().String(), " conn reader exit")
-	defer c.Stop()
-
-	dp := NewDataPack()
-	for {
-		//将最大的数据读取到buf中
-		headData := make([]byte, dp.GetHeadLen())
-		if _, err := io.ReadFull(c.GetTCPConnection(), headData); err != nil {
-			fmt.Println("read msg head error: ", err)
-			c.ExitBuffChan <- true
-			continue
-		}
-
-		//拆包得到msgId和dataLen后放入msg中
-		msg, err := dp.Unpack(headData)
-		if err != nil {
-			fmt.Println("unpack error", err)
-			c.ExitBuffChan <- true
-			continue
-		}
-
-		//根据dataLen读取data，放到msg.Data中
-		var data []byte
-		if msg.GetDataLen() > 0 {
-			data = make([]byte, msg.GetDataLen())
-			if _, err := io.ReadFull(c.GetTCPConnection(), data); err != nil {
-				fmt.Println("read msg data error ", err)
-				c.ExitBuffChan <- true
-				continue
-			}
-		}
-		msg.SetData(data)
-
-		//得到当前客户端请求的Request数据
-		req := Request{
-			conn: c,
-			msg:  msg,
-		}
-
-		//从路由Routers中找到注册绑定conn的对应Handle
-		go c.msgHandler.DoMsgHandler(&req)
-	}
 }
 
 // Start 启动连接，让当前连接开始工作
@@ -140,6 +94,60 @@ func (c *Connection) SendMsg(msgId uint32, data []byte) error {
 	//写回客户端, 发送给Channel，供writer 读取
 	c.msgChan <- msg
 	return nil
+}
+
+// StartReader 处理conn读数据的Goroutine
+func (c *Connection) StartReader() {
+	fmt.Sprintf("Reader Goroutine is running....")
+	defer fmt.Println(c.RemoteAddr().String(), " conn reader exit")
+	defer c.Stop()
+
+	dp := NewDataPack()
+	for {
+		//将最大的数据读取到buf中
+		headData := make([]byte, dp.GetHeadLen())
+		if _, err := io.ReadFull(c.GetTCPConnection(), headData); err != nil {
+			fmt.Println("read msg head error: ", err)
+			c.ExitBuffChan <- true
+			continue
+		}
+
+		//拆包得到msgId和dataLen后放入msg中
+		msg, err := dp.Unpack(headData)
+		if err != nil {
+			fmt.Println("unpack error", err)
+			c.ExitBuffChan <- true
+			continue
+		}
+
+		//根据dataLen读取data，放到msg.Data中
+		var data []byte
+		if msg.GetDataLen() > 0 {
+			data = make([]byte, msg.GetDataLen())
+			if _, err := io.ReadFull(c.GetTCPConnection(), data); err != nil {
+				fmt.Println("read msg data error ", err)
+				c.ExitBuffChan <- true
+				continue
+			}
+		}
+		msg.SetData(data)
+
+		//得到当前客户端请求的Request数据
+		req := Request{
+			conn: c,
+			msg:  msg,
+		}
+
+		//从路由Routers中找到注册绑定conn的对应Handle
+		if utils.GlobalObject.WorkerPoolSize > 0 {
+			//已经启动工作池机制则将消息交给worker处理
+			c.msgHandler.SendMsgToTaskQueue(&req)
+		} else {
+			//从绑定好的消息和对应的处理方法中执行对应的Handle方法
+			go c.msgHandler.DoMsgHandler(&req)
+		}
+
+	}
 }
 
 func (c *Connection) StartWriter() {

@@ -33,8 +33,12 @@ func (s *Server) Start() {
 	fmt.Printf("[Zinx] version: %s, MaxConn: %d, MaxPacketSize: %d\n",
 		utils.GlobalObject.Version, utils.GlobalObject.MaxConn, utils.GlobalObject.MaxPacketSize)
 
-	// 1. 开启一个goroutine去做服务器listener业务
+	// 开启一个goroutine去做服务器listener业务
 	go func() {
+		//0 启动工作池机制
+		s.msgHandler.StartWorkerPool()
+
+		//1.获取一个TCP的addr
 		addr, err := net.ResolveTCPAddr(s.IPVersion, fmt.Sprintf("%s:%d", s.IP, s.Port))
 		if err != nil {
 			fmt.Println("resolve tcp addr err:", err)
