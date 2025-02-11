@@ -5,6 +5,7 @@ import (
 	"io"
 	"net"
 	"time"
+	"zinx/utils"
 	"zinx/znet"
 )
 
@@ -23,7 +24,7 @@ func Test1() {
 	for {
 		//发封包message消息
 		dp := znet.NewDataPack()
-		msgPk := znet.NewMessage(i, []byte("Zinx  v0.5 client Test Message"))
+		msgPk := znet.NewMessage(i%2, []byte(utils.GlobalObject.Name+utils.GlobalObject.Version+", client Test Message"))
 		msg, _ := dp.Pack(msgPk)
 		_, err := conn.Write(msg)
 		if err != nil {

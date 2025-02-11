@@ -4,13 +4,13 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"zinx/utils"
 	"zinx/ziface"
 	"zinx/znet"
 )
 
 type PingRouter struct {
 	znet.BaseRouter //一定要先定义基础路由BaseRouter
-	msgId           uint32
 }
 
 func (this *PingRouter) Handle(request ziface.IRequest) {
@@ -18,16 +18,35 @@ func (this *PingRouter) Handle(request ziface.IRequest) {
 	fmt.Println("recv form client, msgId=", request.GetMsgID(), " data=", string(request.GetData()))
 
 	//回写数据
-	err := request.GetConnection().SendMsg(this.msgId, []byte("ping...ping...ping  "))
+	err := request.GetConnection().SendMsg(0, []byte("ping...ping...ping  "))
 	if err != nil {
 		fmt.Println(err)
 	}
-	this.msgId += 1
+}
+
+type HelloZinxRouter struct {
+	znet.BaseRouter
+}
+
+func (this *HelloZinxRouter) Handle(request ziface.IRequest) {
+	fmt.Println("Call HelloZinxRouter Handle")
+	fmt.Println("recv form client, msgId=", request.GetMsgID(), " data=", string(request.GetData()))
+
+	//回写数据
+	err := request.GetConnection().SendMsg(0, []byte("Hello Zinx Router "+utils.GlobalObject.Version))
+	if err != nil {
+		fmt.Println(err)
+	}
 }
 
 func test1() {
-	s := znet.NewServer("[zinxv0.3]")
-	s.AddRouter(&PingRouter{})
+	s := znet.NewServer("[zinxv0.7]")
+
+	//配置路由
+	s.AddRouter(0, &PingRouter{})
+	s.AddRouter(1, &HelloZinxRouter{})
+
+	//启动服务
 	s.Serve()
 }
 

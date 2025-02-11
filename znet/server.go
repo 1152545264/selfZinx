@@ -99,8 +99,12 @@ func (s *Server) AddRouter(msgId uint32, router ziface.IRouter) {
 }
 
 func NewServer(name string) ziface.IServer {
+	nameStr := utils.GlobalObject.Name
+	if len(nameStr) == 0 {
+		nameStr = name
+	}
 	s := &Server{ //从全局参数获取配置
-		Name:       utils.GlobalObject.Name,
+		Name:       nameStr,
 		IPVersion:  "tcp4",
 		IP:         utils.GlobalObject.Host,
 		Port:       utils.GlobalObject.TcpPort,
