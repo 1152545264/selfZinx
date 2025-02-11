@@ -64,9 +64,6 @@ func Test1() {
 
 		i += 1
 		time.Sleep(1 * time.Second)
-		if i >= 4 {
-			break
-		}
 	}
 }
 
